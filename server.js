@@ -55,31 +55,37 @@ function buildPrompt(p) {
   const w = p.weather || {};
   return [
     { role: "developer", content:
-      "너는 외출 준비물 추천 비서야. 사용자의 일정/장소/목적/실시간 날씨/사용자 특성을 종합해, " +
-      "실제로 챙겨야 할 준비물을 한국어로 6~12개 추천해. " +
-      "★중요: 각 항목을 두루뭉술하게 적지 말고 '구체적'으로 — 종류·용도·수량·규격을 일정 맥락에 맞게 명시해. " +
-      "예) '충전기'→'노트북 충전기(C타입)', '우산'→'접이식 우산', '옷'→'방수 바람막이', '약'→'두통약', " +
-      "'서류'→'계약서 2부', '신발'→'러닝화', '보조배터리'→'보조배터리(10000mAh)', '물'→'500ml 텀블러'. " +
-      "단, 한 항목은 16자 이내로 간결하게. " +
-      "지갑·휴대폰·열쇠 같은 기본 소지품, 날씨(비/추위/더위)·목적 맞춤 항목, '자주 깜빡하는 물건'을 반드시 포함해. " +
-      "출력은 오직 JSON 배열 하나만. 예: [\"접이식 우산\",\"노트북 충전기(C타입)\",\"보조배터리(10000mAh)\"]. 설명/문장/코드블록 금지." },
+      "너는 외출 준비물 추천 비서야. 핵심 목표는 '신뢰할 수 있는' 추천 — 이 일정에 진짜 필요한 것만, 군더더기 없이.\n" +
+      "규칙:\n" +
+      "1) 일정/장소/목적/추가답변/날씨/사용자 특성에 근거가 있는 항목만 추천한다. 확신이 없으면 빼라(개수를 억지로 채우지 마). 보통 4~9개, 품질 우선. 일정과 무관한 일반론적 물건은 절대 넣지 마.\n" +
+      "2) 각 항목은 구체적으로 — 종류·수량·규격을 명시. 예: '충전기'→'노트북 충전기(C타입)', '우산'→'접이식 우산', '약'→'두통약', '물'→'500ml 텀블러', '서류'→'계약서 2부'. 한 항목 16자 이내.\n" +
+      "3) 지갑·휴대폰·교통카드 같은 기본 소지품과 '자주 깜빡하는 물건'은 이 외출에 필요할 때만 포함(무관하면 제외).\n" +
+      "4) 일정이 모호해 신뢰도 높은 추천이 어려우면(실내/실외·활동 종류·격식·숙박 여부 등 불명확) 추측하지 말고, 결과를 가장 크게 가르는 '한 가지'만 묻는 질문을 1개 해. 단, 아래 '되물은 횟수'가 2 이상이면 더 묻지 말고 최선의 추천을 확정한다.\n" +
+      "출력은 JSON 객체 하나만:\n" +
+      "- 더 물어야 할 때: {\"ask\":\"질문\",\"options\":[\"보기1\",\"보기2\",\"보기3\"]}\n" +
+      "- 추천 확정: {\"items\":[\"구체항목1\",\"구체항목2\"]}\n" +
+      "설명·문장·코드블록 없이 JSON만 출력." },
     { role: "user", content:
       `일정: ${p.schedule || "(미입력)"}\n` +
       `장소: ${p.place || "미지정"}\n` +
       `목적: ${p.purpose || "미지정"}\n` +
+      `추가 답변: ${(p.notes && p.notes.length) ? p.notes.join(" / ") : "없음"}\n` +
+      `되물은 횟수: ${p.round || 0} (2 이상이면 더 묻지 말 것)\n` +
       `실시간 날씨: ${w.sky || "?"}, 강수확률 ${w.rainProb ?? "?"}%, 기온 ${w.temp || "?"}\n` +
       `사용자 라이프스타일: ${life}\n` +
-      `자주 깜빡하는 물건(꼭 포함): ${forget}\n` +
+      `자주 깜빡하는 물건: ${forget}\n` +
       `덜렁거림 정도: ${level}` },
   ];
 }
 
-function parseItems(text) {
-  const m = text.match(/\[[\s\S]*\]/);
+function parseResult(text) {
+  const m = text.match(/\{[\s\S]*\}/);
   if (!m) return null;
   try {
-    const arr = JSON.parse(m[0]);
-    return Array.isArray(arr) ? arr.map(x => String(x).trim()).filter(Boolean).slice(0, 14) : null;
+    const o = JSON.parse(m[0]);
+    if (Array.isArray(o.items)) o.items = o.items.map(x => String(x).trim()).filter(Boolean).slice(0, 14);
+    if (Array.isArray(o.options)) o.options = o.options.map(x => String(x).trim()).filter(Boolean).slice(0, 4);
+    return o;
   } catch (e) { return null; }
 }
 
@@ -91,10 +97,11 @@ const server = http.createServer((req, res) => {
       try {
         const payload = JSON.parse(raw || "{}");
         const content = await callLLM(buildPrompt(payload));
-        const items = parseItems(content);
-        if (!items || !items.length) throw new Error("PARSE");
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ items, source: "ai", model: MODEL }));
+        const r = parseResult(content);
+        res.writeHead((r && (r.items?.length || r.ask)) ? 200 : 502, { "Content-Type": "application/json" });
+        if (r && Array.isArray(r.items) && r.items.length) res.end(JSON.stringify({ items: r.items, source: "ai", model: MODEL }));
+        else if (r && r.ask) res.end(JSON.stringify({ ask: String(r.ask), options: r.options || [], source: "ai", model: MODEL }));
+        else res.end(JSON.stringify({ error: "PARSE" }));
       } catch (e) {
         res.writeHead(502, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: String(e.message || e) }));

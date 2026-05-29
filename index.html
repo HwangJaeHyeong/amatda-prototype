@@ -42,11 +42,12 @@
     padding:0 26px 6px;font-size:13px;font-weight:700;z-index:40;}
   .statusbar .right{display:flex;gap:5px;align-items:center;}
 
-  .body{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 20px 96px;}
+  .body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:6px 20px 24px;}
   .body::-webkit-scrollbar{display:none;}
-  .body.onb{padding-bottom:120px;}
+  .body.onb{padding-bottom:96px;}
 
-  .tabbar{position:absolute;bottom:0;left:0;right:0;height:84px;
+  /* 탭바는 흐름상 화면 맨 아래 요소 → 모든 탭에서 항상 바닥 고정 */
+  .tabbar{flex-shrink:0;height:84px;
     background:rgba(255,255,255,.86);backdrop-filter:blur(18px);
     border-top:1px solid var(--line);display:flex;padding:8px 10px 24px;z-index:45;}
   .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
@@ -231,15 +232,10 @@
       padding:0;border-radius:0;box-shadow:none;background:var(--bg);}
     .screen{width:100%;height:100%;border-radius:0;}
     .notch,.statusbar{display:none;}
-    .body{padding-top:max(14px,env(safe-area-inset-top));
-      padding-bottom:calc(96px + env(safe-area-inset-bottom));}
-    /* 탭바를 뷰포트 바닥에 fixed로 고정 */
-    .tabbar{position:fixed;left:0;right:0;bottom:0;height:auto;
-      padding:8px 10px max(18px,env(safe-area-inset-bottom));}
-    .obfoot{position:fixed;left:0;right:0;bottom:0;
-      padding-bottom:max(26px,calc(env(safe-area-inset-bottom) + 12px));}
-    .toast{position:fixed;bottom:calc(100px + env(safe-area-inset-bottom));}
-    .toast.show{bottom:calc(110px + env(safe-area-inset-bottom));}
+    .body{padding-top:max(14px,env(safe-area-inset-top));}
+    /* 탭바는 흐름상 바닥 요소 — 세이프에어리어만 보강 */
+    .tabbar{height:auto;padding:8px 10px max(18px,env(safe-area-inset-bottom));}
+    .obfoot{padding-bottom:max(26px,calc(env(safe-area-inset-bottom) + 12px));}
   }
 </style>
 </head>
@@ -638,7 +634,7 @@ function ensureChat(){
   if(S.chat) return;
   S.chat={stage:"schedule", msgs:[
     {from:"bot", text:`안녕하세요, ${S.name}님! 📝<br/><b>어떤 일정</b>이 있으세요? 문장으로 편하게 적어주시면 <b>AI가 바로 준비물을 추천</b>해드려요.<br/><span style="color:#8b8794">예) "내일 오전 비 오는데 한강에서 강아지 산책하고 카페 작업"</span>`}
-  ], draft:{schedule:"", place:"", purpose:"", cat:"기타", items:[]}};
+  ], draft:{schedule:"", place:"", purpose:"", notes:[], round:0, cat:"기타", items:[]}};
   save();
 }
 function renderAdd(){
@@ -676,6 +672,11 @@ function renderAdd(){
     html+=`<div class="reconote">목적을 고르면 더 정확히 추천해요.</div>
       <div class="qreplies">${PURPOSES.map(p=>`<span class="qr" onclick="submitPurpose('${p.cat}')">${p.label}</span>`).join("")}
       <span class="qr skip" onclick="cancelRefine()">취소</span></div>`;
+  } else if(c.stage==="clarify"){
+    const cl=c.clarify||{options:[]};
+    html+=`<div class="reconote">더 정확히 추천하려고 한 가지만 여쭤봐요.</div>
+      <div class="qreplies">${(cl.options||[]).map((o,i)=>`<span class="qr" onclick="answerClarifyIdx(${i})">${o}</span>`).join("")}</div>
+      <div class="chatinput"><input id="chatIn" placeholder="직접 입력해도 돼요" onkeydown="if(event.key==='Enter')answerClarifyInput()"/><button onclick="answerClarifyInput()">↑</button></div>`;
   } else if(c.stage==="done"){
     html+=`<div class="qreplies"><span class="qr go" onclick="newChat()">＋ 새 일정 추가</span>
       <span class="qr" onclick="go('home')">홈에서 확인</span></div>`;
@@ -700,31 +701,55 @@ function submitPlace(){const v=($("#chatIn")?.value||"").trim();
   S.chat.draft.place=v; meSay("📍 "+v); doRecommend();}
 function submitPurpose(cat){S.chat.draft.purpose=cat; meSay("🎯 "+PURPOSES.find(p=>p.cat===cat).label); doRecommend();}
 
-// 일정 입력 → AI(실패 시 규칙 엔진) 추천 실행
+// 일정 입력 → AI 추천 (모호하면 한 번 되묻고, 정해지면 추천 / 실패 시 규칙 엔진)
 async function doRecommend(){
   const d=S.chat.draft;
-  botSay("🤖 AI가 일정을 읽고 준비물을 분석하고 있어요...");
+  botSay("🤖 AI가 일정을 읽고 분석하고 있어요...");
   S.chat.stage="thinking"; save(); renderAdd();
-  const text=[d.schedule,d.place,d.purpose].filter(Boolean).join(" ");
+  const text=[d.schedule,d.place,d.purpose,...(d.notes||[])].filter(Boolean).join(" ");
   const ruleR=analyze(text, d.purpose||undefined);
+  let resp=null;
+  try{ resp=await aiRecommend(d); }catch(e){ resp={error:(e&&e.message)||"AI_FAIL"}; }
+  S.chat.msgs.pop(); // "분석 중" 제거
+
+  // AI가 추가 질문을 요청 (모호한 일정) → 한 가지만 되묻기 (최대 2회)
+  if(resp && resp.ask && (d.round||0) < 2){
+    d.round=(d.round||0)+1;
+    S.chat.clarify={question:resp.ask, options:resp.options||[]};
+    botSay("❓ "+resp.ask);
+    S.chat.stage="clarify"; save(); renderAdd(); return;
+  }
+
+  // 추천 확정 (AI 결과 우선, 없으면 규칙 엔진 폴백)
   let items, src;
-  try{ items=await aiRecommend(d, d.purpose); src="🤖 AI 분석 (FactChat · GPT-5)"; }
-  catch(e){ items=ruleR.items; src="규칙 엔진"+(e&&e.message==="NO_KEY"?"":" · AI 연결 실패"); }
-  S.chat.msgs.pop();
+  if(resp && resp.items && resp.items.length){ items=resp.items; src="🤖 AI 분석 (FactChat · GPT-5)"; }
+  else { items=ruleR.items; src="규칙 엔진"+(resp&&resp.error==="NO_KEY"?"":" · AI 연결 실패"); }
+  S.chat.clarify=null;
   d.cat = d.purpose || ruleR.cat;
   d.items = items.map(n=>({n,added:true}));
   const warn=d.items.filter(i=>isForget(i.n)).length;
-  botSay(`${src}로 추천했어요!<br/>'<b>${d.schedule}</b>'${d.place?` @${d.place}`:""}에 필요한 준비물 <b>${d.items.length}개</b>${warn?` · ⚠️ 자주 깜빡 ${warn}개 포함`:""}<br/>담을 것만 탭하세요. 더 정확히 하려면 📍장소·🎯목적을 더해요.`);
+  botSay(`${src}로 추천했어요!<br/>'<b>${d.schedule}</b>'${d.place?` @${d.place}`:""}에 꼭 필요한 준비물 <b>${d.items.length}개</b>만 골랐어요${warn?` · ⚠️ 자주 깜빡 ${warn}개 포함`:""}.<br/>담을 것만 탭하세요. 더 정확히 하려면 📍장소·🎯목적을 더해요.`);
   S.chat.stage="recommend"; save(); renderAdd();
 }
-async function aiRecommend(d, cat){
+async function aiRecommend(d){
   const res=await fetch("/api/recommend",{
     method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({schedule:d.schedule, place:d.place, purpose:cat, profile:S.profile, weather:WEATHER})
+    body:JSON.stringify({schedule:d.schedule, place:d.place, purpose:d.purpose,
+      notes:d.notes||[], round:d.round||0, profile:S.profile, weather:WEATHER})
   });
   const data=await res.json().catch(()=>({}));
-  if(!res.ok || !data.items || !data.items.length) throw new Error(data.error||"AI_FAIL");
-  return data.items;
+  if(!res.ok) throw new Error(data.error||"AI_FAIL");
+  return data; // {items:[...]} 또는 {ask, options:[...]}
+}
+function answerClarifyIdx(i){ const o=(S.chat.clarify?.options)||[]; answerClarify(o[i]); }
+function answerClarifyInput(){ const v=($("#chatIn")?.value||"").trim();
+  if(!v){toast("답변을 입력하거나 보기를 선택하세요");return;} answerClarify(v); }
+function answerClarify(ans){
+  if(!ans) return;
+  const q=(S.chat.clarify&&S.chat.clarify.question)||"";
+  S.chat.draft.notes=S.chat.draft.notes||[];
+  S.chat.draft.notes.push(`${q} → ${ans}`);
+  meSay(ans); S.chat.clarify=null; doRecommend();
 }
 function toggleAddItem(i){S.chat.draft.items[i].added=!S.chat.draft.items[i].added;save();renderAdd();}
 function addAllItems(){S.chat.draft.items.forEach(it=>it.added=true);save();toast("추천 준비물을 모두 담았어요!");renderAdd();}
