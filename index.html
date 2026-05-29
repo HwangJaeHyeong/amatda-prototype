@@ -225,16 +225,20 @@
 
   /* 📱 모바일/터치: 폰 프레임 제거하고 화면 꽉 채워 네이티브 앱처럼 */
   @media (max-width:600px), (pointer:coarse){
+    html,body{height:100dvh;overflow:hidden;}            /* 페이지 자체 스크롤 차단 */
     body{padding:0;display:block;background:var(--bg);}
-    .phone{width:100vw;height:100vh;height:100dvh;padding:0;border-radius:0;
-      box-shadow:none;background:var(--bg);}
+    .phone{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;
+      padding:0;border-radius:0;box-shadow:none;background:var(--bg);}
     .screen{width:100%;height:100%;border-radius:0;}
     .notch,.statusbar{display:none;}
     .body{padding-top:max(14px,env(safe-area-inset-top));
-      padding-bottom:calc(92px + env(safe-area-inset-bottom));}
-    .tabbar{height:auto;padding:8px 10px max(18px,env(safe-area-inset-bottom));}
-    .obfoot{padding-bottom:max(26px,calc(env(safe-area-inset-bottom) + 12px));}
-    .toast{bottom:calc(100px + env(safe-area-inset-bottom));}
+      padding-bottom:calc(96px + env(safe-area-inset-bottom));}
+    /* 탭바를 뷰포트 바닥에 fixed로 고정 */
+    .tabbar{position:fixed;left:0;right:0;bottom:0;height:auto;
+      padding:8px 10px max(18px,env(safe-area-inset-bottom));}
+    .obfoot{position:fixed;left:0;right:0;bottom:0;
+      padding-bottom:max(26px,calc(env(safe-area-inset-bottom) + 12px));}
+    .toast{position:fixed;bottom:calc(100px + env(safe-area-inset-bottom));}
     .toast.show{bottom:calc(110px + env(safe-area-inset-bottom));}
   }
 </style>
