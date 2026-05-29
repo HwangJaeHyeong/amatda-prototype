@@ -1,0 +1,4 @@
+# 비밀 키는 절대 커밋/배포하지 않음 (로컬은 상위 디렉터리 ../.factchat_key 사용)
+.factchat_key
+node_modules
+.netlify

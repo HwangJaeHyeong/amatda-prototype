@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>아맞다! — 프로토타입</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#f3f1f8; --card:#ffffff; --ink:#16131f; --sub:#8b8794;
+    --line:#ece9f2; --brand:#7c5cff; --brand-soft:#efeaff;
+    --pink:#ff6fae; --green:#36c98e; --amber:#ffb23e; --blue:#5aa9ff;
+    --shadow:0 10px 30px rgba(40,30,80,.10);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:'Noto Sans KR',-apple-system,system-ui,sans-serif;
+    background:linear-gradient(160deg,#e9e4f7,#f6f1ee);
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;color:var(--ink);
+  }
+  .phone{
+    position:relative;width:390px;height:844px;background:#000;border-radius:54px;
+    padding:12px;box-shadow:0 40px 80px rgba(40,20,90,.35);
+  }
+  .screen{
+    position:relative;width:100%;height:100%;background:var(--bg);
+    border-radius:44px;overflow:hidden;display:flex;flex-direction:column;
+  }
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:130px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:50;}
+  .statusbar{height:48px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 26px 6px;font-size:13px;font-weight:700;z-index:40;}
+  .statusbar .right{display:flex;gap:5px;align-items:center;}
+
+  .body{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 20px 96px;}
+  .body::-webkit-scrollbar{display:none;}
+  .body.onb{padding-bottom:120px;}
+
+  .tabbar{position:absolute;bottom:0;left:0;right:0;height:84px;
+    background:rgba(255,255,255,.86);backdrop-filter:blur(18px);
+    border-top:1px solid var(--line);display:flex;padding:8px 10px 24px;z-index:45;}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    font-size:10px;color:var(--sub);font-weight:500;cursor:pointer;}
+  .tab svg{width:24px;height:24px;}
+  .tab.active{color:var(--brand);}
+  .tab.active svg{stroke:var(--brand);}
+
+  h1{font-size:28px;font-weight:900;margin:8px 0 2px;letter-spacing:-.5px;}
+  .sub{color:var(--sub);font-size:13px;margin:0 0 16px;line-height:1.5;}
+  .card{background:var(--card);border-radius:22px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px;}
+
+  .persona-card{background:linear-gradient(135deg,#7c5cff,#9b7bff);color:#fff;border:none;
+    display:flex;gap:14px;align-items:center;}
+  .persona-card .avatar{font-size:34px;width:56px;height:56px;border-radius:18px;
+    background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .persona-card .who{font-size:12px;opacity:.85;font-weight:700;}
+  .persona-card .msg{font-size:15px;font-weight:700;line-height:1.45;margin-top:3px;}
+
+  .weatherrow{display:flex;gap:10px;margin-bottom:16px;}
+  .wchip{flex:1;background:var(--card);border-radius:18px;padding:14px;text-align:center;box-shadow:var(--shadow);}
+  .wchip .big{font-size:20px;font-weight:900;}
+  .wchip .lbl{font-size:11px;color:var(--sub);margin-top:2px;}
+
+  .sectitle{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 10px;}
+  .sectitle b{font-size:16px;}
+  .sectitle .count{font-size:12px;color:var(--brand);font-weight:700;background:var(--brand-soft);
+    padding:3px 10px;border-radius:20px;}
+
+  .group-tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+    color:#6a6577;background:#efedf4;padding:5px 12px;border-radius:20px;margin:10px 0 8px;}
+
+  .item{display:flex;align-items:center;gap:13px;padding:13px 4px;border-bottom:1px solid var(--line);}
+  .item:last-child{border-bottom:none;}
+  .check{width:24px;height:24px;border-radius:9px;border:2px solid #d8d4e2;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;}
+  .check.on{background:var(--brand);border-color:var(--brand);}
+  .check.on svg{stroke:#fff;}
+  .check svg{width:14px;height:14px;opacity:0;}
+  .check.on svg{opacity:1;}
+  .item .label{flex:1;font-size:15px;font-weight:500;}
+  .item.done .label{text-decoration:line-through;color:var(--sub);}
+  .item .why{font-size:11px;color:var(--brand);font-weight:600;background:var(--brand-soft);
+    padding:2px 9px;border-radius:14px;white-space:nowrap;}
+  .item .why.env{color:var(--blue);background:#e8f2ff;}
+  .item .why.warn{color:#e2622b;background:#ffe9df;}
+
+  /* 밀어서 챙김 (스와이프) */
+  .swipe-wrap{position:relative;overflow:hidden;border-radius:13px;margin:3px 0;}
+  .swipe-bg{position:absolute;inset:0;display:flex;align-items:center;padding:0 20px;
+    font-weight:800;font-size:14px;border-radius:13px;}
+  .swipe-wrap:not(.isdone) .swipe-bg{background:#e6f9f1;color:var(--green);justify-content:flex-start;}
+  .swipe-wrap.isdone .swipe-bg{background:#fff1e0;color:#d98a17;justify-content:flex-end;}
+  .swipe-wrap:not(.isdone) .bgr,.swipe-wrap.isdone .bgl{display:none;}
+  .swipe-wrap.armed .swipe-bg{filter:brightness(.96);}
+  .swipe-card{position:relative;background:var(--card);display:flex;align-items:center;gap:12px;
+    padding:14px 8px;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none;}
+  .swipe-card:active{cursor:grabbing;}
+  .swipe-card .dot{width:22px;height:22px;border-radius:50%;border:2px solid #d8d4e2;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:900;}
+  .swipe-card.done .dot{background:var(--green);border-color:var(--green);animation:pop .32s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes pop{0%{transform:scale(0) rotate(-30deg)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
+  .swipe-card .label{flex:1;font-size:15px;font-weight:500;}
+  .swipe-card.done .label{text-decoration:line-through;color:var(--sub);}
+  .swipe-card .hint{color:#d2cce0;font-size:11px;font-weight:700;white-space:nowrap;}
+
+  .btn{display:block;width:100%;border:none;border-radius:18px;padding:16px;font-size:15px;
+    font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn.primary{background:var(--brand);color:#fff;}
+  .btn.ghost{background:var(--brand-soft);color:var(--brand);}
+  .btn:disabled{opacity:.4;}
+  .btn:active{transform:scale(.98);}
+
+  textarea,input{width:100%;border:1.5px solid var(--line);border-radius:16px;padding:14px;
+    font-family:inherit;font-size:15px;resize:none;background:var(--card);color:var(--ink);}
+  textarea:focus,input:focus{outline:none;border-color:var(--brand);}
+  label.fld{font-size:13px;font-weight:700;color:var(--sub);display:block;margin:4px 2px 7px;}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;}
+  .chip{font-size:12px;background:#fff;border:1.5px solid var(--line);border-radius:20px;
+    padding:8px 13px;cursor:pointer;font-weight:600;}
+  .chip:active{background:var(--brand-soft);}
+  .chip.sel{background:var(--brand);color:#fff;border-color:var(--brand);}
+
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .pcard{background:var(--card);border-radius:20px;padding:18px 14px;text-align:center;
+    box-shadow:var(--shadow);cursor:pointer;border:2.5px solid transparent;transition:.15s;}
+  .pcard.sel{border-color:var(--brand);background:var(--brand-soft);}
+  .pcard .face{font-size:40px;}
+  .pcard .pname{font-weight:900;font-size:15px;margin-top:8px;}
+  .pcard .pdesc{font-size:11px;color:var(--sub);margin-top:4px;line-height:1.4;}
+
+  /* 취향분석 키워드 카드 */
+  .kgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  .kcard{background:var(--card);border-radius:18px;padding:16px 12px;text-align:center;
+    box-shadow:var(--shadow);cursor:pointer;border:2.5px solid transparent;transition:.12s;position:relative;}
+  .kcard.sel{border-color:var(--brand);background:var(--brand-soft);transform:scale(1.02);}
+  .kcard .kf{font-size:30px;}
+  .kcard .kn{font-weight:700;font-size:13px;margin-top:6px;}
+  .kcard.sel::after{content:"✓";position:absolute;top:8px;right:11px;color:var(--brand);font-weight:900;}
+
+  /* 덜렁거림 레벨 */
+  .levels{display:flex;flex-direction:column;gap:11px;}
+  .lvl{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:18px;padding:16px;
+    box-shadow:var(--shadow);cursor:pointer;border:2.5px solid transparent;}
+  .lvl.sel{border-color:var(--brand);background:var(--brand-soft);}
+  .lvl .lf{font-size:30px;}
+  .lvl .lt{font-weight:800;font-size:15px;}
+  .lvl .ld{font-size:12px;color:var(--sub);margin-top:2px;}
+
+  .noti{display:flex;gap:12px;padding:14px;background:var(--card);border-radius:18px;
+    box-shadow:var(--shadow);margin-bottom:11px;}
+  .noti .ava{font-size:26px;width:44px;height:44px;border-radius:14px;background:var(--brand-soft);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .noti .nbody{flex:1;}
+  .noti .nhead{display:flex;justify-content:space-between;align-items:center;}
+  .noti .nname{font-weight:800;font-size:13px;}
+  .noti .ntime{font-size:11px;color:var(--sub);}
+  .noti .ntext{font-size:14px;margin-top:4px;line-height:1.45;}
+
+  .routine{padding:14px 4px;border-bottom:1px solid var(--line);}
+  .routine:last-child{border-bottom:none;}
+  .routine .rtop{display:flex;align-items:center;gap:8px;}
+  .routine .rname{font-weight:700;font-size:15px;}
+  .routine .rmeta{font-size:12px;color:var(--sub);margin-top:4px;}
+  .routine .ritems{font-size:12px;color:var(--brand);margin-top:6px;font-weight:600;}
+  .badge{font-size:10px;font-weight:800;padding:3px 9px;border-radius:12px;background:#e6f9f1;color:var(--green);}
+  .badge.learn{background:#fff1e0;color:#d98a17;}
+
+  .learnbox{background:linear-gradient(135deg,#fff4e3,#ffe9cf);border:1.5px solid #ffdca6;
+    border-radius:20px;padding:16px;margin-bottom:16px;}
+  .learnbox .lh{font-size:13px;font-weight:800;color:#c9780f;margin-bottom:6px;}
+  .learnbox .lb{font-size:13px;color:#7a6038;line-height:1.5;margin-bottom:12px;}
+  .learnbox .lbtns{display:flex;gap:8px;}
+  .learnbox button{flex:1;border:none;border-radius:13px;padding:11px;font-weight:700;font-size:13px;font-family:inherit;cursor:pointer;}
+  .learnbox .yes{background:var(--amber);color:#fff;}
+  .learnbox .no{background:#fff;color:#a98a5e;}
+
+  /* 챗봇 일정 추가 */
+  .chat{display:flex;flex-direction:column;gap:9px;padding-top:6px;}
+  .row{display:flex;gap:8px;align-items:flex-end;}
+  .row.me{justify-content:flex-end;}
+  .botava{font-size:20px;width:34px;height:34px;border-radius:11px;background:var(--brand-soft);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .bub{max-width:78%;padding:12px 15px;border-radius:18px;font-size:14px;line-height:1.5;}
+  .bub.bot{background:#fff;box-shadow:var(--shadow);border-bottom-left-radius:5px;}
+  .bub.me{background:var(--brand);color:#fff;border-bottom-right-radius:5px;}
+  .qreplies{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 4px 42px;}
+  .qr{font-size:13px;background:#fff;border:1.5px solid var(--brand);color:var(--brand);
+    border-radius:20px;padding:9px 14px;font-weight:700;cursor:pointer;transition:.12s;}
+  .qr:active{transform:scale(.96);}
+  .qr.added{background:var(--brand);color:#fff;}
+  .qr.skip{border-color:var(--line);color:var(--sub);}
+  .qr.go{background:var(--brand);color:#fff;}
+  .chatinput{display:flex;gap:8px;margin:8px 0 4px 42px;}
+  .chatinput input{flex:1;border-radius:22px;padding:12px 16px;}
+  .chatinput button{border:none;background:var(--brand);color:#fff;border-radius:50%;
+    width:46px;height:46px;flex-shrink:0;font-size:18px;cursor:pointer;}
+  .reconote{font-size:11px;color:var(--sub);margin:0 0 2px 42px;}
+
+  .empty{text-align:center;color:var(--sub);padding:40px 20px;font-size:14px;}
+  .fade{animation:fade .35s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  .toast{position:absolute;bottom:104px;left:50%;transform:translateX(-50%);
+    background:#16131f;color:#fff;padding:12px 20px;border-radius:30px;font-size:13px;font-weight:600;
+    z-index:60;opacity:0;transition:.25s;pointer-events:none;max-width:80%;text-align:center;}
+  .toast.show{opacity:1;bottom:114px;}
+
+  /* 온보딩 진행바 + 하단 고정 버튼 */
+  .prog{display:flex;gap:6px;margin:14px 0 18px;}
+  .prog span{flex:1;height:5px;border-radius:3px;background:#e1dcec;}
+  .prog span.on{background:var(--brand);}
+  .obfoot{position:absolute;bottom:0;left:0;right:0;padding:16px 20px 26px;
+    background:linear-gradient(180deg,transparent,var(--bg) 30%);z-index:30;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="statusbar">
+      <span id="clock">9:41</span>
+      <span class="right">
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><path d="M9 2.5c2.3 0 4.4.9 6 2.3l1.3-1.4C14.4 1.5 11.8.5 9 .5S3.6 1.5 1.7 3.4L3 4.8C4.6 3.4 6.7 2.5 9 2.5z" opacity=".9"/><path d="M9 6c1.2 0 2.3.5 3.1 1.3l1.3-1.4C12.3 4.7 10.7 4 9 4s-3.3.7-4.4 1.9l1.3 1.4C6.7 6.5 7.8 6 9 6z"/><circle cx="9" cy="9.8" r="1.6"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x=".7" y=".7" width="22" height="11.6" rx="3.2" stroke="currentColor" opacity=".4"/><rect x="2.2" y="2.2" width="17" height="8.6" rx="1.8" fill="currentColor"/><rect x="24" y="4.3" width="1.6" height="4.4" rx=".8" fill="currentColor" opacity=".5"/></svg>
+      </span>
+    </div>
+    <div class="body" id="view"></div>
+    <div class="obfoot" id="obfoot" style="display:none"></div>
+    <div class="toast" id="toast"></div>
+    <div class="tabbar" id="tabbar"></div>
+  </div>
+</div>
+
+<script>
+/* ============================ 페르소나 ============================ */
+const PERSONAS = {
+  mom:    {face:"🤱", name:"걱정 많은 엄마", desc:"잔소리 풀파워, 다 너 잘되라고",
+           greet:n=>`${n}아, 일어났니? 오늘 챙길 거 많던데 엄마가 다 적어놨어.`,
+           remind:i=>`${i} 챙겼어? 엄마가 몇 번을 말해. 빠뜨리고 또 전화하지 말고!`,
+           weather:w=>`밖에 ${w}래. 감기 걸리면 너만 고생이야, 꼭 챙겨!`,
+           praise:()=>`그래 그래, 이제 좀 사람 됐네. 잘했어 우리 애기.`},
+  teacher:{face:"👨‍🏫", name:"초등학교 담임쌤", desc:"준비물 검사, 깐깐하지만 다정",
+           greet:n=>`${n} 학생, 오늘 준비물 점검 시작합니다. 자, 가방 열어보세요~`,
+           remind:i=>`${i}, 가방에 넣었나요? 안 가져오면 옆 친구한테 빌려야 해요!`,
+           weather:w=>`오늘 ${w}니까 선생님이 미리 알려줘요. 준비성 있는 어린이가 됩시다.`,
+           praise:()=>`참 잘했어요! 오늘 준비물 100점, 칭찬 도장 꾹.`},
+  tsun:   {face:"😤", name:"츤데레 친구", desc:"챙겨주면서 절대 안 챙기는 척",
+           greet:n=>`야 ${n}. 딱히 너 걱정한 건 아닌데... 챙길 거 정리해놨다. 고마워하진 마.`,
+           remind:i=>`${i} 안 챙겼지? 하... 내가 이럴 줄 알았어. 빨리 넣어 빨리.`,
+           weather:w=>`${w}라던데. 별 상관은 없지만 너 감기 걸리면 시끄러우니까 챙겨.`,
+           praise:()=>`오 다 챙겼네? 뭐... 이 정도면 봐줄 만하다.`},
+  robot:  {face:"🤖", name:"집사 로봇 J-5", desc:"논리적이고 정확한 브리핑",
+           greet:n=>`${n}님, 좋은 아침입니다. 오늘의 외출 준비 프로토콜을 실행합니다.`,
+           remind:i=>`알림: '${i}' 미체크. 누락 시 외출 실패 확률 상승. 조치 권장.`,
+           weather:w=>`환경 데이터 분석 결과: ${w}. 대응 품목을 리스트에 반영했습니다.`,
+           praise:()=>`체크리스트 100% 완료. 효율적인 외출이 예상됩니다. 훌륭합니다.`},
+  sergeant:{face:"🪖", name:"훈련소 조교", desc:"빠릿빠릿, 군기 충전",
+           greet:n=>`${n} 훈련병! 기상! 오늘 챙길 군장 점검 실시한다. 실시!`,
+           remind:i=>`${i} 안 챙겼나! 빠졌으면 다시! 빠릿빠릿 안 움직여?!`,
+           weather:w=>`기상 상황 ${w}! 대비 품목 지급 완료! 빠뜨리면 얼차려다!`,
+           praise:()=>`좋아! 군장 점검 통과! 역시 우리 훈련병, 자세 나온다!`},
+};
+
+/* ============ 취향분석: 라이프스타일 키워드 → 개인화 규칙 ============ */
+const LIFESTYLE = [
+  {id:"work",   f:"💼", n:"직장인",        items:["사원증","노트북"], routine:{name:"평일 출근",meta:"AM 8:30 · 학습됨",items:["사원증","노트북","에어팟"]}},
+  {id:"student",f:"🎓", n:"대학생",        items:["학생증","노트북"]},
+  {id:"gym",    f:"🏋️", n:"운동 매니아",    items:["운동복","물통"], routine:{name:"주 3회 헬스 (월·수·금)",meta:"AM 7:00 · 학습됨",items:["운동복","물통","수건"]}},
+  {id:"travel", f:"✈️", n:"출장·여행 잦음", items:["보조배터리","충전기"]},
+  {id:"pet",    f:"🐶", n:"반려동물",      items:[], walk:["배변봉투","간식"]},
+  {id:"lens",   f:"👓", n:"렌즈·안경",      items:["렌즈통","여분 렌즈"], always:true},
+  {id:"meds",   f:"💊", n:"약 챙김",        items:["상비약"], always:true},
+  {id:"baby",   f:"🍼", n:"육아 중",        items:["물티슈","기저귀"]},
+  {id:"car",    f:"🚗", n:"자차 출퇴근",    items:["차키","하이패스카드"]},
+  {id:"coffee", f:"☕", n:"카페·노트북",    items:["노트북","충전기","텀블러"]},
+];
+// 자주 깜빡하는 물건 (덜렁거림 보정)
+const FORGET_ITEMS = ["지갑","휴대폰","충전기","우산","이어폰","상비약","마스크","텀블러","교통카드","열쇠"];
+// 덜렁거림 정도 → 잔소리 강도
+const FORGET_LEVELS = {
+  high:{f:"🌀", t:"자주 두고 나가요", d:"하루에도 몇 번씩 깜빡! 잔소리 강하게, 알림 자주", reminders:3},
+  mid: {f:"🙂", t:"가끔 깜빡해요",     d:"중요한 날엔 종종. 적당한 잔소리",            reminders:2},
+  low: {f:"😎", t:"거의 안 잊어요",    d:"웬만하면 다 챙김. 알림 최소로",              reminders:1},
+};
+
+/* ===================== 일정 분석 규칙 ===================== */
+const RULES = [
+  {kw:["헬스","운동","짐","pt","필라테스","요가","러닝"], items:["운동복","물통","수건","운동화"], cat:"운동"},
+  {kw:["수영","수영장"], items:["수영복","수경","수영모"], cat:"운동"},
+  {kw:["회의","미팅","발표","피티","ppt","면접"], items:["노트북","충전기","명함","필기구"], cat:"업무"},
+  {kw:["출장","여행","여권","공항","비행"], items:["여권","보조배터리","세면도구","충전기"], cat:"여행"},
+  {kw:["식당","예약","저녁","점심","약속","데이트","카페"], items:["지갑","예약금 확인"], cat:"약속"},
+  {kw:["병원","진료","검진"], items:["신분증","보험증","진료카드"], cat:"건강"},
+  {kw:["학교","수업","강의","스터디","도서관","시험"], items:["노트북","필기구","학생증"], cat:"학업"},
+  {kw:["등산","캠핑","공원","나들이"], items:["물","모자","선크림","간식"], cat:"야외"},
+];
+const BASE = ["지갑","휴대폰","열쇠"];
+// 기본값(모의) — 위치 권한 허용 시 실시간 값으로 교체됨
+const WEATHER = {temp:"14°", sky:"흐림 · 오후 비", rainProb:80, dust:"보통", live:false,
+  envItems:[{name:"우산",why:"오후 강수확률 80%"},{name:"겉옷",why:"체감 14°, 쌀쌀"}]};
+
+// 실시간 날씨 (open-meteo, 키 불필요 · localhost에서 위치 권한 동작)
+async function fetchWeather(){
+  if(!navigator.geolocation) return;
+  try{
+    const pos=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(ok,no,{timeout:9000,maximumAge:600000}));
+    const {latitude:la,longitude:lo}=pos.coords;
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m&hourly=precipitation_probability&forecast_days=1&timezone=auto`);
+    const d=await r.json();
+    const t=Math.round(d.current.temperature_2m);
+    const probs=(d.hourly?.precipitation_probability||[]).slice(0,18);
+    const rp=probs.length?Math.max(...probs):0;
+    WEATHER.temp=t+"°"; WEATHER.rainProb=rp; WEATHER.live=true;
+    WEATHER.sky = rp>=60?"흐림 · 비 가능성 높음":rp>=30?"구름 조금":"대체로 맑음";
+    WEATHER.envItems=[];
+    if(rp>=50) WEATHER.envItems.push({name:"우산", why:`강수확률 ${rp}%`});
+    if(t<=15)  WEATHER.envItems.push({name:"겉옷", why:`기온 ${t}°, 쌀쌀`});
+    if(t>=28)  WEATHER.envItems.push({name:"선크림", why:`기온 ${t}°, 자외선 주의`});
+    if(S.onboarded && S.tab==="home") render();
+  }catch(e){ /* 권한 거부/실패 시 모의값 유지 */ }
+}
+
+/* ============================ 상태 ============================ */
+const KEY="ddudugo_v4";
+const todayLabel="5월 29일 (금)";
+function freshState(){return {
+  onboarded:false, obStep:0, name:"현빈", persona:null,
+  profile:{lifestyle:[], forget:null, level:null},
+  plans:[], routines:[], notis:[], env:{},
+  learn:{},        // 카테고리별 등장 횟수 (반복 일정 학습)
+  learnedCats:[],  // 이미 루틴화한 카테고리
+  pendingLearn:null, // 루틴 등록 제안 대기
+  chat:null,       // 챗봇 일정 추가 대화 상태
+  geminiKey:"",    // 무료 Gemini API 키 (있으면 실제 AI 추천)
+  tab:"home",
+};}
+let S = load() || freshState();
+function load(){try{return JSON.parse(localStorage.getItem(KEY))}catch(e){return null}}
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+
+/* ============================ 유틸 ============================ */
+const $=s=>document.querySelector(s);
+function toast(t){const el=$("#toast");el.textContent=t;el.classList.add("show");
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove("show"),2100);}
+const CHK=`<svg viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>`;
+function persona(){return PERSONAS[S.persona]||PERSONAS.mom;}
+function allItems(){return S.plans.flatMap(p=>p.items);}
+function progress(){const a=allItems();return a.length?Math.round(a.filter(i=>i.done).length/a.length*100):0;}
+function isForget(name){return (S.profile.forget||[]).includes(name);}
+
+// 일정 목적 선택지 (은행 챗봇 스타일 퀵리플라이)
+const PURPOSES = [
+  {cat:"업무", label:"💼 업무·회의"}, {cat:"약속", label:"🍽 식사·약속"},
+  {cat:"운동", label:"🏋️ 운동"},     {cat:"학업", label:"📚 공부·수업"},
+  {cat:"건강", label:"🏥 병원·진료"}, {cat:"여행", label:"✈️ 여행·출장"},
+  {cat:"야외", label:"🌳 야외활동"},
+];
+/* 일정 텍스트 분석 → 추천 (프로필 개인화 + 목적 반영) */
+function analyze(text, purposeCat){
+  const low=text.toLowerCase();
+  let cat = purposeCat || "기타", items=new Set(BASE);
+  for(const r of RULES){
+    if((purposeCat && r.cat===purposeCat) || r.kw.some(k=>low.includes(k.toLowerCase()))){
+      if(!purposeCat) cat=r.cat; r.items.forEach(i=>items.add(i));
+    }
+  }
+  // 프로필: 항상 챙기는 품목(렌즈/약)
+  LIFESTYLE.filter(l=>S.profile.lifestyle.includes(l.id) && l.always).forEach(l=>l.items.forEach(i=>items.add(i)));
+  // 반려동물 + 산책/공원 일정
+  if(S.profile.lifestyle.includes("pet") && /산책|공원|강아지|반려/.test(low)) (LIFESTYLE.find(l=>l.id==="pet").walk||[]).forEach(i=>items.add(i));
+  if(WEATHER.rainProb>=60) items.add("우산");
+  return {cat, items:[...items]};
+}
+
+/* ============================ 렌더 진입 ============================ */
+function render(){
+  if(!S.onboarded){ $("#tabbar").style.display="none"; renderOnboard(); return; }
+  $("#tabbar").style.display="flex"; $("#obfoot").style.display="none";
+  renderTabs();
+  const v=$("#view"); v.className="body fade";
+  ({home:renderHome, add:renderAdd, noti:renderNoti, routine:renderRoutine, settings:renderSettings}[S.tab])();
+  v.scrollTop=0;
+}
+function renderTabs(){
+  const tabs=[
+    ["home","홈",`<path d="M3 11l9-8 9 8M5 10v10h14V10"/>`],
+    ["add","일정 추가",`<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>`],
+    ["noti","알림",`<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/>`],
+    ["routine","루틴",`<path d="M3 12a9 9 0 109-9M3 3v6h6"/>`],
+    ["settings","설정",`<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 00-1.7-1L14.5 3h-5l-.3 2.5a7 7 0 00-1.7 1l-2.4-1-2 3.5L3 11a7 7 0 000 2l-2 1.5 2 3.5 2.4-1a7 7 0 001.7 1l.3 2.5h5l.3-2.5a7 7 0 001.7-1l2.4 1 2-3.5-2-1.5a7 7 0 00.1-1z"/>`],
+  ];
+  $("#tabbar").innerHTML=tabs.map(([k,l,p])=>
+    `<div class="tab ${S.tab===k?'active':''}" onclick="go('${k}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8b8794" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>
+      <span>${l}</span></div>`).join("");
+}
+function go(t){S.tab=t;save();render();}
+
+/* ============================ 온보딩 (취향분석) ============================ */
+function renderOnboard(){
+  const v=$("#view"); v.className="body onb fade"; const foot=$("#obfoot"); foot.style.display="block";
+  const bars=n=>`<div class="prog">${[0,1,2,3].map(i=>`<span class="${i<=n?'on':''}"></span>`).join("")}</div>`;
+
+  if(S.obStep===0){
+    v.innerHTML=`
+      <div style="text-align:center;padding:60px 10px 0;">
+        <div style="font-size:72px;">🎒</div>
+        <h1 style="font-size:34px;margin-top:14px;">아맞다!</h1>
+        <p class="sub" style="font-size:15px;margin-top:10px;">외출 전, 똑똑한 잔소리로<br/>준비물을 대신 챙겨드려요.<br/><br/>딱 맞는 추천을 위해<br/><b>당신을 조금만 알려주세요.</b> (30초)</p>
+      </div>`;
+    foot.innerHTML=`<button class="btn primary" onclick="obNext()">시작하기</button>`;
+    return;
+  }
+  if(S.obStep===1){
+    v.innerHTML=`${bars(0)}
+      <h1>나는 이런 사람</h1>
+      <p class="sub">해당되는 걸 모두 골라주세요. 골라주신 만큼 준비물을 더 똑똑하게 추천해요.</p>
+      <div class="kgrid">
+        ${LIFESTYLE.map(l=>`<div class="kcard ${S.profile.lifestyle.includes(l.id)?'sel':''}" onclick="toggleLife('${l.id}')">
+            <div class="kf">${l.f}</div><div class="kn">${l.n}</div></div>`).join("")}
+      </div>`;
+    foot.innerHTML=`<button class="btn primary" ${S.profile.lifestyle.length?'':'disabled'} onclick="obNext()">다음 (${S.profile.lifestyle.length}개 선택)</button>`;
+    return;
+  }
+  if(S.obStep===2){
+    const fg=S.profile.forget||[];
+    v.innerHTML=`${bars(1)}
+      <h1>자주 깜빡하는 건?</h1>
+      <p class="sub">잘 두고 나가는 물건을 골라주세요. 이 물건들은 <b>⚠️ 표시</b>로 한 번 더 알려드려요.</p>
+      <div class="chips">
+        ${FORGET_ITEMS.map(it=>`<span class="chip ${fg.includes(it)?'sel':''}" onclick="toggleForget('${it}')">${it}</span>`).join("")}
+      </div>`;
+    foot.innerHTML=`<button class="btn primary" ${fg.length?'':'disabled'} onclick="obNext()">다음 (${fg.length}개 선택)</button>`;
+    return;
+  }
+  if(S.obStep===3){
+    v.innerHTML=`${bars(2)}
+      <h1>덜렁거림 정도는?</h1>
+      <p class="sub">솔직하게! 잔소리 강도와 알림 횟수를 맞춰드려요.</p>
+      <div class="levels">
+        ${Object.entries(FORGET_LEVELS).map(([k,l])=>`<div class="lvl ${S.profile.level===k?'sel':''}" onclick="pickLevel('${k}')">
+            <div class="lf">${l.f}</div><div><div class="lt">${l.t}</div><div class="ld">${l.d}</div></div></div>`).join("")}
+      </div>`;
+    foot.innerHTML=`<button class="btn primary" ${S.profile.level?'':'disabled'} onclick="obNext()">다음</button>`;
+    return;
+  }
+  if(S.obStep===4){
+    v.innerHTML=`${bars(3)}
+      <h1>나에게 잔소리할<br/>페르소나는?</h1>
+      <p class="sub">취향에 맞는 알림 주체를 골라주세요. 나중에 설정에서 바꿀 수 있어요.</p>
+      <div class="pgrid">
+        ${Object.entries(PERSONAS).map(([k,p])=>`<div class="pcard ${S.persona===k?'sel':''}" onclick="pickPersona('${k}')">
+            <div class="face">${p.face}</div><div class="pname">${p.name}</div><div class="pdesc">${p.desc}</div></div>`).join("")}
+      </div>`;
+    foot.innerHTML=`<button class="btn primary" ${S.persona?'':'disabled'} onclick="finishOnboard()">분석 완료! 시작하기</button>`;
+    return;
+  }
+}
+function obNext(){S.obStep++;save();renderOnboard();}
+function toggleLife(id){const a=S.profile.lifestyle;const i=a.indexOf(id);i<0?a.push(id):a.splice(i,1);save();renderOnboard();}
+function toggleForget(it){S.profile.forget=S.profile.forget||[];const a=S.profile.forget;const i=a.indexOf(it);i<0?a.push(it):a.splice(i,1);save();renderOnboard();}
+function pickLevel(k){S.profile.level=k;save();renderOnboard();}
+function pickPersona(k){S.persona=k;save();renderOnboard();}
+
+function finishOnboard(){
+  // 실사용 시작: 데모 데이터 없이 빈 상태로 시작 (일정/루틴은 사용자가 직접 추가)
+  S.onboarded=true; save(); seedNotis(); S.tab="home"; save(); render(); fetchWeather();
+  setTimeout(()=>toast("취향분석 완료! 첫 일정을 추가해 보세요 🎉"),300);
+}
+
+/* ============================ 홈 ============================ */
+function renderHome(){
+  const p=persona(), prog=progress(), name=S.name;
+  const fgCount=allItems().filter(i=>isForget(i.n)&&!i.done).length;
+  $("#view").innerHTML=`
+    <h1>오늘의 준비물</h1>
+    <p class="sub">${todayLabel} · 일정 ${S.plans.length}건 · ${WEATHER.live?'📍 실시간 날씨 반영':'날씨 모의값(위치 허용 시 실시간)'}</p>
+
+    ${S.pendingLearn?renderLearnBox():""}
+
+    <div class="card persona-card">
+      <div class="avatar">${p.face}</div>
+      <div><div class="who">${p.name}</div>
+        <div class="msg">${prog===100?p.praise():p.greet(name)}</div></div>
+    </div>
+
+    ${fgCount?`<div class="card" style="background:#fff3ef;box-shadow:none;border:1.5px solid #ffd6c7;">
+      <div style="font-size:13px;font-weight:800;color:#e2622b;">⚠️ 자주 깜빡하는 물건 ${fgCount}개 안 챙김!</div>
+      <div style="font-size:12px;color:#a86a52;margin-top:4px;">${allItems().filter(i=>isForget(i.n)&&!i.done).map(i=>i.n).join(", ")} — 가방 꼭 확인하세요.</div></div>`:""}
+
+    <div class="weatherrow">
+      <div class="wchip"><div class="big">${WEATHER.temp}</div><div class="lbl">${WEATHER.sky}</div></div>
+      <div class="wchip"><div class="big">☔ ${WEATHER.rainProb}%</div><div class="lbl">강수확률</div></div>
+      <div class="wchip"><div class="big">😷 ${WEATHER.dust}</div><div class="lbl">미세먼지</div></div>
+    </div>
+
+    ${WEATHER.envItems.length?`<div class="card" style="background:#fff7ec;box-shadow:none;border:1.5px solid #ffe6c2;">
+      <div style="font-size:12px;font-weight:800;color:#d98a17;margin-bottom:6px;">🔗 ${WEATHER.live?'실시간 날씨 연동':'날씨'} 분석</div>
+      <div style="font-size:13px;line-height:1.5;color:#7a6a4d;">${p.weather(WEATHER.sky)} ${WEATHER.envItems.map(e=>'<b>'+e.name+'</b>').join('·')}을(를) 자동으로 추천했어요.</div>
+    </div>`:""}
+
+    <div class="sectitle"><b>오늘 챙길 것</b>${S.plans.length?`<span class="count">${prog}% 완료</span>`:""}</div>
+
+    ${S.plans.length?`
+      <p class="reconote" style="margin:0 0 10px 2px;">👉 항목을 옆으로 <b>밀면</b> 챙김 완료!</p>
+      ${S.plans.map(pl=>`<div class="card" style="padding:8px 12px;">
+        <div class="group-tag">📌 ${pl.title}</div>
+        ${pl.items.map((it,i)=>swipeRow("item",pl.id,i,it.n,it.done,isForget(it.n)?'<div class="why warn">⚠️ 자주 깜빡</div>':'')).join("")}
+      </div>`).join("")}
+    `:`
+      <div class="card" style="text-align:center;padding:30px 18px;">
+        <div style="font-size:42px;">🗓️</div>
+        <div style="font-weight:800;margin-top:8px;">아직 등록한 일정이 없어요</div>
+        <div style="font-size:13px;color:var(--sub);margin-top:6px;line-height:1.55;">일정을 추가하면 AI가 일정·날씨·내 프로필을<br/>분석해 준비물을 추천해드려요.</div>
+      </div>
+    `}
+
+    ${WEATHER.envItems.length?`<div class="card" style="padding:8px 12px;">
+      <div class="group-tag" style="color:var(--blue);background:#e8f2ff;">🌧 ${WEATHER.live?'실시간 날씨':'환경'} 추천</div>
+      ${WEATHER.envItems.map((e,i)=>swipeRow("env",0,i,e.name,!!S.env[i],`<div class="why env">${e.why}</div>`)).join("")}
+    </div>`:""}
+
+    <button class="btn ${S.plans.length?'ghost':'primary'}" onclick="go('add')">＋ 일정 추가하고 준비물 추천받기</button>
+  `;
+  attachSwipe();
+}
+
+/* 스와이프 행 마크업 */
+function swipeRow(kind, planId, idx, name, done, why){
+  return `<div class="swipe-wrap ${done?'isdone':''}">
+    <div class="swipe-bg"><span class="bgl">✓ 챙겼어요!</span><span class="bgr" style="margin-left:auto">↩︎ 다시 챙기기</span></div>
+    <div class="swipe-card ${done?'done':''}" data-kind="${kind}" data-plan="${planId}" data-idx="${idx}" data-done="${done?1:0}">
+      <div class="dot">${done?'✓':''}</div>
+      <div class="label">${name}</div>
+      ${why||''}
+      <div class="hint">${done?'← 밀어서 취소':'밀어서 챙김 ⟩'}</div>
+    </div>
+  </div>`;
+}
+/* 스와이프 제스처 + 애니메이션 */
+function attachSwipe(){
+  const TH=88; // 발동 임계치
+  document.querySelectorAll('.swipe-card').forEach(card=>{
+    const wrap=card.parentElement, done=card.dataset.done==='1';
+    let startX=0, dx=0, drag=false;
+    const move=e=>{
+      if(!drag)return;
+      dx=(e.clientX??e.touches?.[0]?.clientX)-startX;
+      dx = done ? Math.min(0,Math.max(dx,-150)) : Math.max(0,Math.min(dx,150));
+      card.style.transform=`translateX(${dx}px)`;
+      wrap.classList.toggle('armed', Math.abs(dx)>TH);
+    };
+    const end=()=>{
+      if(!drag)return; drag=false;
+      window.removeEventListener('pointermove',move);
+      window.removeEventListener('pointerup',end);
+      card.style.transition='transform .25s cubic-bezier(.2,.8,.2,1)';
+      if(Math.abs(dx)>TH){
+        card.style.transform=`translateX(${done?-380:380}px)`;
+        card.style.opacity='.4';
+        setTimeout(()=>commitSwipe(card), 190);
+      } else {
+        card.style.transform='translateX(0)';
+        wrap.classList.remove('armed');
+      }
+    };
+    card.addEventListener('pointerdown',e=>{
+      drag=true; startX=e.clientX; dx=0; card.style.transition='none';
+      window.addEventListener('pointermove',move);
+      window.addEventListener('pointerup',end);
+    });
+  });
+}
+function commitSwipe(card){
+  if(card.dataset.kind==='item') toggleItem(card.dataset.plan, +card.dataset.idx);
+  else toggleEnv(+card.dataset.idx);
+}
+function renderLearnBox(){
+  const pl=S.pendingLearn;
+  return `<div class="learnbox fade">
+    <div class="lh">🧠 반복 일정 학습</div>
+    <div class="lb">'<b>${pl.cat}</b>' 일정을 ${pl.count}번째 추가했어요. 매번 챙기는 <b>${pl.items.join(" · ")}</b>를 <b>루틴</b>으로 등록할까요? 다음부터 자동으로 챙겨드릴게요.</div>
+    <div class="lbtns"><button class="yes" onclick="acceptLearn()">루틴으로 등록</button><button class="no" onclick="dismissLearn()">나중에</button></div>
+  </div>`;
+}
+function toggleEnv(i){const sc=$("#view").scrollTop;S.env[i]=!S.env[i];save();maybeCelebrate();render();$("#view").scrollTop=sc;}
+function toggleItem(planId,i){
+  const sc=$("#view").scrollTop;
+  const pl=S.plans.find(p=>String(p.id)===String(planId)); pl.items[i].done=!pl.items[i].done;
+  save();maybeCelebrate();render();
+  $("#view").scrollTop=sc;
+}
+function maybeCelebrate(){
+  if(progress()===100 && allItems().length){ toast(persona().praise()); pushNoti(persona().praise()); }
+}
+function acceptLearn(){
+  const pl=S.pendingLearn;
+  S.routines.push({id:Date.now(),name:`${pl.cat} (반복 학습됨)`,meta:"자동 학습 · 진행 중",items:pl.items.slice(),on:true,learned:true});
+  S.learnedCats.push(pl.cat); S.pendingLearn=null; save();
+  toast("루틴으로 등록했어요! 다음부터 자동으로 챙겨드릴게요 🧠"); render();
+}
+function dismissLearn(){S.pendingLearn=null;save();render();}
+
+/* ============================ 일정 추가 (챗봇) ============================ */
+// 대화 단계: schedule(필수) → place(선택) → purpose(선택) → recommend → done
+function ensureChat(){
+  if(S.chat) return;
+  S.chat={stage:"schedule", msgs:[
+    {from:"bot", text:`안녕하세요, ${S.name}님! 📝<br/><b>어떤 일정</b>이 있으세요? 문장으로 편하게 적어주시면 <b>AI가 바로 준비물을 추천</b>해드려요.<br/><span style="color:#8b8794">예) "내일 오전 비 오는데 한강에서 강아지 산책하고 카페 작업"</span>`}
+  ], draft:{schedule:"", place:"", purpose:"", cat:"기타", items:[]}};
+  save();
+}
+function renderAdd(){
+  ensureChat();
+  const c=S.chat;
+  let html=`<h1>일정 추가</h1>
+    <p class="sub">일정을 적으면 <b>AI가 준비물을 추천</b>해요. 장소·목적은 더 정확히 하고 싶을 때만 더하세요.</p>
+    <div class="chat">`;
+  c.msgs.forEach(m=>{
+    if(m.from==="bot"){
+      html+=`<div class="row"><div class="botava">🤖</div><div class="bub bot">${m.text}</div></div>`;
+    } else {
+      html+=`<div class="row me"><div class="bub me">${m.text}</div></div>`;
+    }
+  });
+  if(c.stage==="schedule"){
+    html+=`<div class="chatinput"><input id="chatIn" placeholder="예) 내일 오후 3시 강남 디자인팀 미팅" onkeydown="if(event.key==='Enter')sendSchedule()"/><button onclick="sendSchedule()">↑</button></div>
+      <div class="qreplies">${["내일 헬스 가기","오후 팀 미팅","주말 저녁 약속","비 오는날 외출"].map(s=>`<span class="qr" onclick="quickSchedule('${s}')">${s}</span>`).join("")}</div>`;
+  } else if(c.stage==="recommend"){
+    html+=`<div class="reconote">👇 탭하면 담겨요 (다시 탭 = 빼기)</div>
+      <div class="qreplies">${c.draft.items.map((it,i)=>`<span class="qr ${it.added?'added':''}" onclick="toggleAddItem(${i})">${it.added?'✓ ':'＋ '}${it.n}</span>`).join("")}</div>
+      <div class="qreplies">
+        <span class="qr skip" onclick="tapAddPlace()">📍 ${c.draft.place?'장소 변경':'장소 추가'}</span>
+        <span class="qr skip" onclick="tapAddPurpose()">🎯 ${c.draft.purpose?'목적 변경':'목적 추가'}</span>
+      </div>
+      <div class="qreplies">
+        <span class="qr" onclick="addAllItems()">전체 담기</span>
+        <span class="qr go" onclick="finishChat()">완료 · 저장 (${c.draft.items.filter(i=>i.added).length})</span>
+      </div>`;
+  } else if(c.stage==="addplace"){
+    html+=`<div class="reconote">어디서 만나세요? 입력하면 AI가 다시 추천해요.</div>
+      <div class="chatinput"><input id="chatIn" placeholder="예) 강남역 / 회사 / 한강공원" onkeydown="if(event.key==='Enter')submitPlace()"/><button onclick="submitPlace()">↑</button></div>
+      <div class="qreplies"><span class="qr skip" onclick="cancelRefine()">취소</span></div>`;
+  } else if(c.stage==="addpurpose"){
+    html+=`<div class="reconote">목적을 고르면 더 정확히 추천해요.</div>
+      <div class="qreplies">${PURPOSES.map(p=>`<span class="qr" onclick="submitPurpose('${p.cat}')">${p.label}</span>`).join("")}
+      <span class="qr skip" onclick="cancelRefine()">취소</span></div>`;
+  } else if(c.stage==="done"){
+    html+=`<div class="qreplies"><span class="qr go" onclick="newChat()">＋ 새 일정 추가</span>
+      <span class="qr" onclick="go('home')">홈에서 확인</span></div>`;
+  }
+  html+=`</div>`;
+  $("#view").innerHTML=html;
+  const v=$("#view"); v.scrollTop=v.scrollHeight;
+  const inp=$("#chatIn"); if(inp) inp.focus();
+}
+function botSay(text){S.chat.msgs.push({from:"bot",text});}
+function meSay(text){S.chat.msgs.push({from:"me",text});}
+
+function quickSchedule(s){S.chat.draft.schedule=s; meSay(s); doRecommend();}
+function sendSchedule(){const v=($("#chatIn")?.value||"").trim();
+  if(!v){toast("일정을 입력해 주세요! (필수)");return;}
+  S.chat.draft.schedule=v; meSay(v); doRecommend();}
+function tapAddPlace(){S.chat.stage="addplace"; save(); renderAdd();}
+function tapAddPurpose(){S.chat.stage="addpurpose"; save(); renderAdd();}
+function cancelRefine(){S.chat.stage="recommend"; save(); renderAdd();}
+function submitPlace(){const v=($("#chatIn")?.value||"").trim();
+  if(!v){toast("장소를 입력하거나 취소하세요");return;}
+  S.chat.draft.place=v; meSay("📍 "+v); doRecommend();}
+function submitPurpose(cat){S.chat.draft.purpose=cat; meSay("🎯 "+PURPOSES.find(p=>p.cat===cat).label); doRecommend();}
+
+// 일정 입력 → AI(실패 시 규칙 엔진) 추천 실행
+async function doRecommend(){
+  const d=S.chat.draft;
+  botSay("🤖 AI가 일정을 읽고 준비물을 분석하고 있어요...");
+  S.chat.stage="thinking"; save(); renderAdd();
+  const text=[d.schedule,d.place,d.purpose].filter(Boolean).join(" ");
+  const ruleR=analyze(text, d.purpose||undefined);
+  let items, src;
+  try{ items=await aiRecommend(d, d.purpose); src="🤖 AI 분석 (FactChat · GPT-5)"; }
+  catch(e){ items=ruleR.items; src="규칙 엔진"+(e&&e.message==="NO_KEY"?"":" · AI 연결 실패"); }
+  S.chat.msgs.pop();
+  d.cat = d.purpose || ruleR.cat;
+  d.items = items.map(n=>({n,added:true}));
+  const warn=d.items.filter(i=>isForget(i.n)).length;
+  botSay(`${src}로 추천했어요!<br/>'<b>${d.schedule}</b>'${d.place?` @${d.place}`:""}에 필요한 준비물 <b>${d.items.length}개</b>${warn?` · ⚠️ 자주 깜빡 ${warn}개 포함`:""}<br/>담을 것만 탭하세요. 더 정확히 하려면 📍장소·🎯목적을 더해요.`);
+  S.chat.stage="recommend"; save(); renderAdd();
+}
+async function aiRecommend(d, cat){
+  const res=await fetch("/api/recommend",{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({schedule:d.schedule, place:d.place, purpose:cat, profile:S.profile, weather:WEATHER})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok || !data.items || !data.items.length) throw new Error(data.error||"AI_FAIL");
+  return data.items;
+}
+function toggleAddItem(i){S.chat.draft.items[i].added=!S.chat.draft.items[i].added;save();renderAdd();}
+function addAllItems(){S.chat.draft.items.forEach(it=>it.added=true);save();toast("추천 준비물을 모두 담았어요!");renderAdd();}
+function finishChat(){
+  const d=S.chat.draft;
+  const chosen=d.items.filter(i=>i.added);
+  if(!chosen.length){toast("담을 준비물을 한 개 이상 골라주세요!");return;}
+  S.plans.push({id:Date.now(), title:d.schedule+(d.place?` @${d.place}`:""), cat:d.cat, items:chosen.map(i=>({n:i.n,done:false}))});
+  // 반복 일정 학습
+  S.learn[d.cat]=(S.learn[d.cat]||0)+1;
+  pushNoti(persona().remind(chosen[0].n));
+  if(d.cat!=="기타" && S.learn[d.cat]>=2 && !S.learnedCats.includes(d.cat)){
+    S.pendingLearn={cat:d.cat, count:S.learn[d.cat], items:[...new Set(chosen.map(i=>i.n))]};
+  }
+  meSay(`${chosen.length}개 담기 완료!`);
+  botSay(`'<b>${d.title}</b>' 일정과 준비물을 저장했어요! ✅${S.pendingLearn?"<br/>🧠 같은 일정을 반복하셔서 <b>루틴 등록</b>을 제안드려요. 홈에서 확인하세요!":""}`);
+  S.chat.stage="done"; save();
+  toast(S.pendingLearn?"저장 완료! 반복 일정으로 학습했어요 🧠":"일정과 준비물을 저장했어요!");
+  renderAdd();
+}
+function newChat(){S.chat=null;ensureChat();renderAdd();}
+
+/* ============================ 알림 ============================ */
+function seedNotis(){
+  const p=persona(), reps=FORGET_LEVELS[S.profile.level||'mid'].reminders;
+  S.notis=[ {t:p.greet(S.name), time:"오전 7:30", face:p.face, name:p.name} ];
+  // 자주 깜빡하는 물건에 대한 아침 알림 (덜렁거림 레벨만큼)
+  const fg=(S.profile.forget||[]).slice(0,reps);
+  fg.forEach((it,i)=>S.notis.push({t:p.remind(it), time:`오전 ${8+i}:00`, face:p.face, name:p.name}));
+  S.notis.reverse();
+}
+function pushNoti(text){const p=persona();S.notis.unshift({t:text,time:"방금",face:p.face,name:p.name});save();}
+function renderNoti(){
+  if(!S.notis.length) seedNotis();
+  const lvl=FORGET_LEVELS[S.profile.level||'mid'];
+  $("#view").innerHTML=`
+    <h1>알림</h1>
+    <p class="sub">${persona().name}의 잔소리 · 덜렁거림 <b>${lvl.t}</b> → 하루 ${lvl.reminders}회 알림</p>
+    <button class="btn ghost" style="margin-bottom:16px" onclick="testPush()">🔔 지금 잔소리 받아보기 (테스트)</button>
+    ${S.notis.map(n=>`<div class="noti fade">
+        <div class="ava">${n.face}</div>
+        <div class="nbody"><div class="nhead"><span class="nname">${n.name}</span><span class="ntime">${n.time}</span></div>
+        <div class="ntext">${n.t}</div></div></div>`).join("")}
+  `;
+}
+function testPush(){
+  const p=persona();
+  const undone=allItems().filter(i=>!i.done);
+  // 자주 깜빡하는 물건 우선
+  const fg=undone.find(i=>isForget(i.n));
+  const target=(fg||undone[Math.floor(undone.length*0.5)]||{}).n||"준비물";
+  pushNoti(undone.length?p.remind(target):p.praise());
+  toast("새 잔소리가 도착했어요!"); render();
+}
+
+/* ============================ 루틴 ============================ */
+function renderRoutine(){
+  $("#view").innerHTML=`
+    <h1>루틴 관리</h1>
+    <p class="sub">반복 일정은 자동으로 <b>학습</b>되어 준비물 템플릿이 돼요.</p>
+    ${S.routines.length?`<div class="card" style="padding:8px 16px;">
+      ${S.routines.map(r=>`<div class="routine">
+          <div class="rtop"><span class="rname">${r.name}</span>
+            ${r.learned?'<span class="badge learn">🧠 학습됨</span>':''}
+            ${r.on?'<span class="badge">자동 ON</span>':''}</div>
+          <div class="rmeta">⏰ ${r.meta}</div>
+          <div class="ritems">🎒 ${r.items.join(" · ")}</div>
+        </div>`).join("")}</div>`:`<div class="empty">아직 루틴이 없어요.<br/>일정을 반복 추가하면 자동으로 학습돼요!</div>`}
+    <button class="btn ghost" onclick="addRoutine()">＋ 새 루틴 직접 만들기</button>
+  `;
+}
+function addRoutine(){
+  const name=prompt("반복 일정 이름 (예: 화요일 영어학원)"); if(!name)return;
+  const its=prompt("고정 준비물 (쉼표로 구분)","교재, 필기구");
+  S.routines.push({id:Date.now(),name,meta:"직접 추가 · 진행 중",items:(its||"").split(",").map(s=>s.trim()).filter(Boolean),on:true});
+  save();toast("루틴을 추가했어요!");render();
+}
+
+/* ============================ 설정 ============================ */
+function renderSettings(){
+  const sel=S.profile.lifestyle.map(id=>LIFESTYLE.find(l=>l.id===id)).filter(Boolean);
+  const lvl=FORGET_LEVELS[S.profile.level||'mid'];
+  $("#view").innerHTML=`
+    <h1>설정</h1>
+    <p class="sub">취향분석 결과와 페르소나를 관리해요.</p>
+
+    <div class="card">
+      <div style="font-weight:800;font-size:14px;margin-bottom:8px;">🔌 실제 연동 상태</div>
+      <div id="aiStat" style="font-size:13px;color:var(--sub);line-height:1.9;">확인 중...</div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:800;font-size:14px;margin-bottom:10px;">🧬 내 취향 프로필</div>
+      <div style="font-size:13px;color:var(--sub);line-height:2;">
+        라이프스타일: <b style="color:var(--ink)">${sel.map(l=>l.f+l.n).join(", ")||'-'}</b><br/>
+        덜렁거림: <b style="color:var(--ink)">${lvl.f} ${lvl.t}</b><br/>
+        자주 깜빡: <b style="color:var(--ink)">${(S.profile.forget||[]).join(", ")||'-'}</b>
+      </div>
+      <div style="height:12px"></div>
+      <button class="btn ghost" onclick="redoOnboard()">취향분석 다시하기</button>
+    </div>
+
+    <label class="fld">내 이름 (잔소리에 사용)</label>
+    <input id="nameInput" value="${S.name}" onchange="S.name=this.value;save();" />
+    <div style="height:18px"></div>
+
+    <label class="fld">AI 잔소리 페르소나</label>
+    <div class="pgrid">
+      ${Object.entries(PERSONAS).map(([k,p])=>`<div class="pcard ${S.persona===k?'sel':''}" onclick="changePersona('${k}')">
+          <div class="face">${p.face}</div><div class="pname">${p.name}</div><div class="pdesc">${p.desc}</div></div>`).join("")}
+    </div>
+    <div style="height:18px"></div>
+    <button class="btn ghost" onclick="resetAll()">프로토타입 데이터 초기화</button>
+    <p style="font-size:11px;color:var(--sub);text-align:center;margin-top:20px;line-height:1.6;">
+      아맞다! v0.5 프로토타입<br/>5조 · 송단미 · 이수진 · 이현빈</p>
+  `;
+  checkAI();
+}
+async function checkAI(){
+  const el=$("#aiStat"); if(!el) return;
+  const wx = WEATHER.live ? "✅ 실시간 날씨 연동됨 ("+WEATHER.temp+", 강수 "+WEATHER.rainProb+"%)" : "⚠️ 날씨 모의값 (위치 권한 허용 필요)";
+  let ai="⚠️ 로컬 서버 미실행 — 규칙 엔진으로 동작<br/><span style='font-size:11px'>터미널에서 <code>node server.js</code> 후 localhost로 접속하세요</span>";
+  try{
+    const r=await fetch("/api/health"); const d=await r.json();
+    ai = d.ai ? "✅ 실제 AI 추천 연결됨 (FactChat · "+d.model+")" : "⚠️ 서버 실행 중 · API 키 없음 → 규칙 엔진 폴백";
+  }catch(e){}
+  el.innerHTML = "🤖 AI 추천: "+ai+"<br/>🌧 날씨: "+wx;
+}
+function changePersona(k){S.persona=k;seedNotis();save();toast(`'${PERSONAS[k].name}'(으)로 변경! 잔소리 톤이 바뀌어요.`);render();}
+function redoOnboard(){S.onboarded=false;S.obStep=1;S.profile={lifestyle:[],forget:[],level:null};S.routines=[];S.plans=[];S.learn={};S.learnedCats=[];S.chat=null;S.pendingLearn=null;save();render();}
+function resetAll(){if(confirm("모든 데이터를 초기화할까요?")){localStorage.removeItem(KEY);location.reload();}}
+
+/* ============================ 시계 ============================ */
+function tick(){const d=new Date();$("#clock").textContent=`${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;}
+tick();setInterval(tick,10000);
+render();
+if(S.onboarded) fetchWeather();
+</script>
+</body>
+</html>

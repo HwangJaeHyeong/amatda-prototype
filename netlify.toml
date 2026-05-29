@@ -1,0 +1,15 @@
+# 아맞다! — Netlify 배포 설정
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# 프론트엔드가 호출하는 /api/* 를 서버리스 함수로 연결
+[[redirects]]
+  from = "/api/recommend"
+  to = "/.netlify/functions/recommend"
+  status = 200
+
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
