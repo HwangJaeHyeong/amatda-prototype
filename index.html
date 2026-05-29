@@ -2,8 +2,15 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>아맞다! — 프로토타입</title>
+<meta name="theme-color" content="#7c5cff" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="아맞다!" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
 <style>
@@ -215,6 +222,21 @@
   .prog span.on{background:var(--brand);}
   .obfoot{position:absolute;bottom:0;left:0;right:0;padding:16px 20px 26px;
     background:linear-gradient(180deg,transparent,var(--bg) 30%);z-index:30;}
+
+  /* 📱 모바일/터치: 폰 프레임 제거하고 화면 꽉 채워 네이티브 앱처럼 */
+  @media (max-width:600px), (pointer:coarse){
+    body{padding:0;display:block;background:var(--bg);}
+    .phone{width:100vw;height:100vh;height:100dvh;padding:0;border-radius:0;
+      box-shadow:none;background:var(--bg);}
+    .screen{width:100%;height:100%;border-radius:0;}
+    .notch,.statusbar{display:none;}
+    .body{padding-top:max(14px,env(safe-area-inset-top));
+      padding-bottom:calc(92px + env(safe-area-inset-bottom));}
+    .tabbar{height:auto;padding:8px 10px max(18px,env(safe-area-inset-bottom));}
+    .obfoot{padding-bottom:max(26px,calc(env(safe-area-inset-bottom) + 12px));}
+    .toast{bottom:calc(100px + env(safe-area-inset-bottom));}
+    .toast.show{bottom:calc(110px + env(safe-area-inset-bottom));}
+  }
 </style>
 </head>
 <body>

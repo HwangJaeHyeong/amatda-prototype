@@ -1,0 +1,14 @@
+{
+  "name": "아맞다! — 스마트 준비물 어시스턴트",
+  "short_name": "아맞다!",
+  "description": "일정·날씨를 분석해 준비물을 추천하고 잔소리로 알려주는 AI 어시스턴트",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f1f8",
+  "theme_color": "#7c5cff",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
