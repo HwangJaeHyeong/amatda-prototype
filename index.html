@@ -732,7 +732,8 @@ function finishChat(){
   const d=S.chat.draft;
   const chosen=d.items.filter(i=>i.added);
   if(!chosen.length){toast("담을 준비물을 한 개 이상 골라주세요!");return;}
-  S.plans.push({id:Date.now(), title:d.schedule+(d.place?` @${d.place}`:""), cat:d.cat, items:chosen.map(i=>({n:i.n,done:false}))});
+  const title=d.schedule+(d.place?` @${d.place}`:"");
+  S.plans.push({id:Date.now(), title, cat:d.cat, items:chosen.map(i=>({n:i.n,done:false}))});
   // 반복 일정 학습
   S.learn[d.cat]=(S.learn[d.cat]||0)+1;
   pushNoti(persona().remind(chosen[0].n));
@@ -740,7 +741,7 @@ function finishChat(){
     S.pendingLearn={cat:d.cat, count:S.learn[d.cat], items:[...new Set(chosen.map(i=>i.n))]};
   }
   meSay(`${chosen.length}개 담기 완료!`);
-  botSay(`'<b>${d.title}</b>' 일정과 준비물을 저장했어요! ✅${S.pendingLearn?"<br/>🧠 같은 일정을 반복하셔서 <b>루틴 등록</b>을 제안드려요. 홈에서 확인하세요!":""}`);
+  botSay(`'<b>${title}</b>' 일정과 준비물을 저장했어요! ✅${S.pendingLearn?"<br/>🧠 같은 일정을 반복하셔서 <b>루틴 등록</b>을 제안드려요. 홈에서 확인하세요!":""}`);
   S.chat.stage="done"; save();
   toast(S.pendingLearn?"저장 완료! 반복 일정으로 학습했어요 🧠":"일정과 준비물을 저장했어요!");
   renderAdd();
