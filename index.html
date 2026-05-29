@@ -858,6 +858,8 @@ function tick(){const d=new Date();$("#clock").textContent=`${d.getHours()}:${St
 tick();setInterval(tick,10000);
 render();
 if(S.onboarded) fetchWeather();
+// PWA: 서비스워커 등록 (설치형 앱 + 오프라인)
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 </script>
 </body>
 </html>
